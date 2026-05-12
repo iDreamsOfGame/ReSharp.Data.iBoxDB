@@ -91,16 +91,85 @@ namespace ReSharp.Data.IBoxDB
         /// Gets the box object of iBoxDB database.
         /// </summary>
         public DB.AutoBox Box { get; private set; }
+
+        /// <summary>
+        /// Ensures that the table exists in the database configuration with a single key.
+        /// </summary>
+        /// <typeparam name="T">The type of the table entity.</typeparam>
+        /// <param name="key">The primary key field name for the table.</param>
+        /// <returns>The database configuration object.</returns>
+        public DatabaseConfig EnsureTable<T>(string key) where T : class => EnsureTable<T>(typeof(T).Name, key);
+
+        /// <summary>
+        /// Ensures that the table exists in the database configuration with a single key.
+        /// </summary>
+        /// <typeparam name="T">The type of the table entity.</typeparam>
+        /// <param name="tableName">Name of the table.</param>
+        /// <param name="key">The primary key field name for the table.</param>
+        /// <returns>The database configuration object.</returns>
+        public DatabaseConfig EnsureTable<T>(string tableName, string key) where T : class
+        {
+            return Database.GetConfig().EnsureTable<T>(tableName, key);
+        }
         
         /// <summary>
-        /// Ensures the table is in database. If not exists, create a table.
+        /// Ensures that the table exists in the database configuration with multiple keys.
         /// </summary>
-        /// <typeparam name="T">The type of table data.</typeparam>
-        /// <param name="tableName">Name of the table.</param>
-        /// <param name="names">The property names of table data.</param>
-        public void EnsureTable<T>(string tableName, params string[] names) where T : class
+        /// <typeparam name="T">The type of the table entity.</typeparam>
+        /// <param name="keys">An array of primary key field names for the table.</param>
+        /// <returns>The database configuration object.</returns>
+        public DatabaseConfig EnsureTable<T>(string[] keys) where T : class => EnsureTable<T>(typeof(T).Name, keys);
+
+        /// <summary>
+        /// Ensures that the table exists in the database configuration with a table name and multiple keys.
+        /// </summary>
+        /// <typeparam name="T">The type of the table entity.</typeparam>
+        /// <param name="tableName">The name of the table.</param>
+        /// <param name="keys">An array of primary key field names for the table.</param>
+        /// <returns>The database configuration object.</returns>
+        public DatabaseConfig EnsureTable<T>(string tableName, string[] keys) where T : class
         {
-            Database.GetConfig().EnsureTable<T>(tableName, names);
+            return Database.GetConfig().EnsureTable<T>(tableName, keys);
+        }
+
+        /// <summary>
+        /// Ensures that an index exists on the specified field in the database configuration.
+        /// </summary>
+        /// <typeparam name="T">The type of the table entity.</typeparam>
+        /// <param name="key">The field name to create an index on.</param>
+        /// <returns>The database configuration object.</returns>
+        public DatabaseConfig EnsureIndex<T>(string key) where T : class => EnsureIndex<T>(typeof(T).Name, key);
+
+        /// <summary>
+        /// Ensures that an index exists on the specified field in the database configuration.
+        /// </summary>
+        /// <typeparam name="T">The type of the table entity.</typeparam>
+        /// <param name="tableName">The name of the table.</param>
+        /// <param name="key">The field name to create an index on.</param>
+        /// <returns>The database configuration object.</returns>
+        public DatabaseConfig EnsureIndex<T>(string tableName, string key) where T : class
+        {
+            return Database.GetConfig().EnsureIndex<T>(tableName, key);
+        }
+        
+        /// <summary>
+        /// Ensures that indexes exist on the specified fields in the database configuration.
+        /// </summary>
+        /// <typeparam name="T">The type of the table entity.</typeparam>
+        /// <param name="keys">An array of field names to create indexes on.</param>
+        /// <returns>The database configuration object.</returns>
+        public DatabaseConfig EnsureIndex<T>(string[] keys) where T : class => EnsureIndex<T>(typeof(T).Name, keys);
+
+        /// <summary>
+        /// Ensures that indexes exist on the specified fields for a table in the database configuration.
+        /// </summary>
+        /// <typeparam name="T">The type of the table entity.</typeparam>
+        /// <param name="tableName">The name of the table.</param>
+        /// <param name="keys">An array of field names to create indexes on.</param>
+        /// <returns>The database configuration object.</returns>
+        public DatabaseConfig EnsureIndex<T>(string tableName, string[] keys) where T : class
+        {
+            return Database.GetConfig().EnsureIndex<T>(tableName, keys);
         }
 
         /// <summary>
@@ -113,7 +182,7 @@ namespace ReSharp.Data.IBoxDB
 
             if (Database == null)
                 return;
-            
+
             Box = Database.Open();
             IsOpen = true;
         }
@@ -123,6 +192,207 @@ namespace ReSharp.Data.IBoxDB
         /// </summary>
         /// <returns>System.Byte[].</returns>
         public byte[] GetBuffer() => Database.GetBuffer();
+
+        /// <summary>
+        /// Counts the number of records that match the specified query with arguments.
+        /// </summary>
+        /// <typeparam name="T">The type of table data.</typeparam>
+        /// <param name="query">The query condition without 'where' clause.</param>
+        /// <param name="arguments">The query arguments.</param>
+        /// <returns>The count of matching records.</returns>
+        public long CountByQuery<T>(string query, params object[] arguments) where T : class, new() => CountByQuery(typeof(T).Name, query, arguments);
+        
+        /// <summary>
+        /// Counts the number of records that match the specified query with arguments.
+        /// </summary>
+        /// <param name="tableName">Name of the table.</param>
+        /// <param name="query">The query condition without 'where' clause.</param>
+        /// <param name="arguments">The query arguments.</param>
+        /// <returns>The count of matching records.</returns>
+        public long CountByQuery(string tableName, string query, params object[] arguments)
+        {
+            CheckIfDisposed();
+            CheckIfDatabaseIsOpen();
+
+            var builder = new StringBuilder();
+            builder.AppendFormat("from {0} where ", tableName);
+            builder.Append(query);
+            return Box.Count(builder.ToString(), arguments);
+        }
+        
+        /// <summary>
+        /// Counts the number of records that match the specified dictionary-based query conditions.
+        /// </summary>
+        /// <typeparam name="T">The type of the table entity.</typeparam>
+        /// <param name="arguments">A dictionary containing query field names and their corresponding values.</param>
+        /// <param name="logicalOperator">The logical operator to use between conditions (And, Or, or None).</param>
+        /// <returns>The count of matching records.</returns>
+        public long CountByQuery<T>(Dictionary<string, object> arguments, QueryLogicalOperator logicalOperator = QueryLogicalOperator.None)
+        {
+            return CountByQuery(typeof(T).Name, arguments, logicalOperator);
+        }
+        
+        /// <summary>
+        /// Counts the number of records that match the specified dictionary-based query conditions.
+        /// </summary>
+        /// <param name="tableName">Name of the table.</param>
+        /// <param name="arguments">A dictionary containing query field names and their corresponding values.</param>
+        /// <param name="logicalOperator">The logical operator to use between conditions (And, Or, or None).</param>
+        /// <returns>The count of matching records.</returns>
+        public long CountByQuery(string tableName,
+            Dictionary<string, object> arguments,
+            QueryLogicalOperator logicalOperator = QueryLogicalOperator.None)
+        {
+            CheckIfDisposed();
+            CheckIfDatabaseIsOpen();
+
+            var builder = new StringBuilder();
+            builder.AppendFormat("from {0} where ", tableName);
+
+            var i = 0;
+            foreach (var key in arguments.Keys)
+            {
+                builder.AppendFormat("{0} == ?", key);
+                i++;
+
+                if (i < arguments.Keys.Count)
+                {
+                    switch (logicalOperator)
+                    {
+                        case QueryLogicalOperator.And:
+                        default:
+                            builder.Append(" & ");
+                            break;
+
+                        case QueryLogicalOperator.Or:
+                            builder.Append(" | ");
+                            break;
+                    }
+                }
+            }
+
+            var args = new object[arguments.Count];
+            arguments.Values.CopyTo(args, 0);
+            return Box.Count(builder.ToString(), args);
+        }
+        
+        /// <summary>
+        /// Counts the number of records that match the specified key-value condition.
+        /// </summary>
+        /// <typeparam name="T">The type of table data.</typeparam>
+        /// <param name="key">The key to match.</param>
+        /// <param name="value">The value to match.</param>
+        /// <returns>The count of matching records.</returns>
+        public long Count<T>(string key, object value) where T : class, new() => Count(typeof(T).Name, key, value);
+        
+        /// <summary>
+        /// Counts the number of records that match the specified key-value condition.
+        /// </summary>
+        /// <param name="tableName">Name of the table.</param>
+        /// <param name="key">The key to match.</param>
+        /// <param name="value">The value to match.</param>
+        /// <returns>The count of matching records.</returns>
+        public long Count(string tableName, string key, object value)
+        {
+            CheckIfDisposed();
+            CheckIfDatabaseIsOpen();
+            return Box.Count($"from {tableName} where {key} == ?", value);
+        }
+
+        /// <summary>
+        /// Counts all records in the table.
+        /// </summary>
+        /// <typeparam name="T">The type of table data.</typeparam>
+        /// <returns>The total count of records in the table.</returns>
+        public long Count<T>() where T : class, new() => Count(typeof(T).Name);
+
+        /// <summary>
+        /// Counts all records in the table.
+        /// </summary>
+        /// <param name="tableName">Name of the table.</param>
+        /// <returns>The total count of records in the table.</returns>
+        public long Count(string tableName)
+        {
+            CheckIfDisposed();
+            CheckIfDatabaseIsOpen();
+
+            return Box.Count($"from {tableName}");
+        }
+        
+        /// <summary>
+        /// Gets the specified object with the <c>keys</c>.
+        /// </summary>
+        /// <typeparam name="T">Specifies the object type of return.</typeparam>
+        /// <param name="keys">The keys to locate the specified object.</param>
+        /// <returns>The object that was found.</returns>
+        public T Get<T>(params object[] keys) where T : class, new() => Get<T>(typeof(T).Name, keys);
+
+        /// <summary>
+        /// Gets the specified object with the <c>tableName</c> and the <c>keys</c>.
+        /// </summary>
+        /// <typeparam name="T">Specifies the object type of return.</typeparam>
+        /// <param name="tableName">Name of the table.</param>
+        /// <param name="keys">The keys to locate the specified object.</param>
+        /// <returns>The object that was found.</returns>
+        public T Get<T>(string tableName, params object[] keys) where T : class, new()
+        {
+            CheckIfDisposed();
+            CheckIfDatabaseIsOpen();
+            return Box.Get<T>(tableName, keys);
+        }
+
+        /// <summary>
+        /// Gets all data in the table.
+        /// </summary>
+        /// <typeparam name="T">The type of the data in database.</typeparam>
+        /// <returns>The data list found in database.</returns>
+        public List<T> GetAll<T>() where T : class, new() => GetAll<T>(typeof(T).Name);
+
+        /// <summary>
+        /// Gets all data in the table.
+        /// </summary>
+        /// <typeparam name="T">The type of the data in database.</typeparam>
+        /// <param name="tableName">Name of the table.</param>
+        /// <returns>The data list found in database.</returns>
+        public List<T> GetAll<T>(string tableName) where T : class, new()
+        {
+            CheckIfDisposed();
+            CheckIfDatabaseIsOpen();
+            return Box.Select<T>($"from {tableName}");
+        }
+        
+        /// <summary>
+        /// Finds the specified objects with the <c>value</c> of <c>key</c>.
+        /// </summary>
+        /// <typeparam name="T">Specifies the object type of return.</typeparam>
+        /// <param name="key">The key to locate the specified object.</param>
+        /// <param name="value">The value of key to locate the specified object.</param>
+        /// <returns>The objects that was found.</returns>
+        public List<T> Find<T>(string key, object value) where T : class, new() => Find<T>(typeof(T).Name, key, value);
+
+        /// <summary>
+        /// Finds the specified objects with the <c>tableName</c> and the <c>value</c> of <c>key</c>.
+        /// </summary>
+        /// <typeparam name="T">Specifies the object type of return.</typeparam>
+        /// <param name="tableName">Name of the table.</param>
+        /// <param name="key">The key to locate the specified object.</param>
+        /// <param name="value">The value of key to locate the specified object.</param>
+        /// <returns>The objects that was found.</returns>
+        public List<T> Find<T>(string tableName, string key, object value) where T : class, new()
+        {
+            CheckIfDisposed();
+            CheckIfDatabaseIsOpen();
+            return Box.Select<T>($"from {tableName} where {key} == ?", value);
+        }
+        
+        /// <summary>
+        /// Queries data with string of specific query language.
+        /// </summary>
+        /// <typeparam name="T">The type definition of query data.</typeparam>
+        /// <param name="query">The string of specific query language.</param>
+        /// <param name="arguments">The arguments.</param>
+        /// <returns>A <see cref="List{T}" /> that contains query results.</returns>
+        public List<T> Query<T>(string query, params object[] arguments) where T : class, new() => Query<T>(typeof(T).Name, query, arguments);
 
         /// <summary>
         /// Queries data with string of specific query language.
@@ -144,43 +414,28 @@ namespace ReSharp.Data.IBoxDB
         }
         
         /// <summary>
-        /// Gets the specified object with the <c>tableName</c> and the <c>keys</c>.
+        /// Queries the specified objects with multi-conditions.
         /// </summary>
         /// <typeparam name="T">Specifies the object type of return.</typeparam>
-        /// <param name="tableName">Name of the table.</param>
-        /// <param name="keys">The keys to locate the specified object.</param>
-        /// <returns>The object that was found.</returns>
-        public T Get<T>(string tableName, params object[] keys) where T : class, new()
-        {
-            CheckIfDisposed();
-            CheckIfDatabaseIsOpen();
-            return Box.Get<T>(tableName, keys);
-        }
-
-        /// <summary>
-        /// Gets the specified objects with the <c>tableName</c> and the <c>value</c> of <c>key</c>.
-        /// </summary>
-        /// <typeparam name="T">Specifies the object type of return.</typeparam>
-        /// <param name="tableName">Name of the table.</param>
-        /// <param name="key">The key to locate the specified object.</param>
-        /// <param name="value">The value of key to locate the specified object.</param>
+        /// <param name="arguments">The arguments.</param>
+        /// <param name="logicalOperator">The logical operator.</param>
         /// <returns>The objects that was found.</returns>
-        public List<T> Get<T>(string tableName, string key, object value) where T : class, new()
+        public List<T> Query<T>(Dictionary<string, object> arguments, QueryLogicalOperator logicalOperator = QueryLogicalOperator.None) where T : class, new()
         {
-            CheckIfDisposed();
-            CheckIfDatabaseIsOpen();
-            return Box.Select<T>($"from {tableName} where {key} == ?", value);
+            return Query<T>(typeof(T).Name, arguments, logicalOperator);
         }
 
         /// <summary>
-        /// Gets the specified objects with the <c>tableName</c> and multi-conditions.
+        /// Queries the specified objects with the <c>tableName</c> and multi-conditions.
         /// </summary>
         /// <typeparam name="T">Specifies the object type of return.</typeparam>
         /// <param name="tableName">Name of the table.</param>
         /// <param name="arguments">The arguments.</param>
         /// <param name="logicalOperator">The logical operator.</param>
         /// <returns>The objects that was found.</returns>
-        public List<T> Get<T>(string tableName, Dictionary<string, object> arguments, QueryLogicalOperator logicalOperator = QueryLogicalOperator.None) where T : class, new()
+        public List<T> Query<T>(string tableName,
+            Dictionary<string, object> arguments,
+            QueryLogicalOperator logicalOperator = QueryLogicalOperator.None) where T : class, new()
         {
             CheckIfDisposed();
             CheckIfDatabaseIsOpen();
@@ -216,18 +471,13 @@ namespace ReSharp.Data.IBoxDB
         }
 
         /// <summary>
-        /// Gets all data in the table.
+        /// Inserts data into database.
         /// </summary>
-        /// <typeparam name="T">The type of the data in database.</typeparam>
-        /// <param name="tableName">Name of the table.</param>
-        /// <returns>The data list found in database.</returns>
-        public List<T> GetAll<T>(string tableName) where T : class, new()
-        {
-            CheckIfDisposed();
-            CheckIfDatabaseIsOpen();
-            return Box.Select<T>($"from {tableName}");
-        }
-        
+        /// <typeparam name="T">The type of table data.</typeparam>
+        /// <param name="value">The data need to be inserted.</param>
+        /// <returns><c>true</c> if data insert success, <c>false</c> otherwise.</returns>
+        public bool Insert<T>(T value) where T : class => Insert(typeof(T).Name, value);
+
         /// <summary>
         /// Inserts data into database.
         /// </summary>
@@ -242,18 +492,6 @@ namespace ReSharp.Data.IBoxDB
             return Box.Insert(tableName, value);
         }
 
-        /// <summary>
-        /// Inserts data into database.
-        /// </summary>
-        /// <typeparam name="T">The type of table data.</typeparam>
-        /// <param name="value">The data need to be inserted.</param>
-        /// <returns><c>true</c> if data insert success, <c>false</c> otherwise.</returns>
-        public bool Insert<T>(T value) where T : class
-        {
-            var tableName = typeof(T).Name;
-            return Insert(tableName, value);
-        }
-        
         /// <summary>
         /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
         /// </summary>
@@ -271,7 +509,7 @@ namespace ReSharp.Data.IBoxDB
         {
             if (disposed)
                 return;
-            
+
             if (disposing)
             {
                 Box?.Dispose();

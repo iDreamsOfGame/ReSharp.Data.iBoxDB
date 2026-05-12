@@ -349,5 +349,3 @@ MigrationBackup/
 
 # Rider
 .idea/
-
-upm/Assets/ReSharp.Data.iBoxDB/*
